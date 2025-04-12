@@ -4,7 +4,7 @@ Python backend for the Raspberry PI to create backend for captive portal & admin
 Consist of several files with separate function:
 * `main.py` is the backend file that runs FAST API server. The server updates firebase database, communicate with captive portal and Mikrotik.
 * `coinreq.py` script that start the coin acceptor and give update whenever there's coin inputted or user timeout.
-* `readsolar.py` script that communicate with Power Sensor & Battery and returns charging status, battery status, and solar panel status.
+* `devicestats.py` script that communicate with Power Sensor & Battery and returns charging status, battery status, and solar panel status.
 
 
 ## How to run
