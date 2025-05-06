@@ -3,6 +3,7 @@
 Python backend for the Raspberry PI to create backend for captive portal & admin web.
 Consist of several files with separate function:
 * `main.py` is the backend file that runs FAST API server. The server updates firebase database, communicate with captive portal and Mikrotik.
+* `mikrotik_api.py` script that calls function to router OS API, allow or dissalow access to hotspot.
 * `coinreq.py` script that start the coin acceptor and give update whenever there's coin inputted or user timeout.
 * `devicestats.py` script that communicate with Power Sensor & Battery and returns charging status, battery status, and solar panel status.
 
