@@ -41,8 +41,6 @@ def add_hotspot_user(mac: str, ip: str, time_minutes: int):
         add_cmd = {
                 "name"         : mac,
                 "password"     : mac,
-                "address"      : ip,
-                "mac-address"  : mac,
                 "limit-uptime" : f"{time_minutes}m",
                 "profile" : "default"
             }
