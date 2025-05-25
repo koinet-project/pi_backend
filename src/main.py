@@ -33,7 +33,7 @@ db = DatabaseAPI(
     )
 
 lock_db = False # Lock database update if the database is currently updated.
-
+#TEST
 # ──────────────────────────── data structures ────────────────────────────
 class LoginUser:
         def __init__ (self, websocket: WebSocket, mac_address: str, ip_address: str):
