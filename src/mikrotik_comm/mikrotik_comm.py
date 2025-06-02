@@ -123,7 +123,24 @@ class MikrotikAPI:
         except exceptions.RouterOsApiConnectionError as e:
             print(f"Login failed: {e}")
     
+    def deleteHotspotUser(self, mac: str):
+        try:
+            api = self._pool.get_api()
 
+            hotspot_users = api.get_resource("ip/hotspot/user")
+
+            users = hotspot_users.get(name=mac)
+
+            if not users:
+                print(f"Failed to remove user: User not found")
+
+            uid = users[0]['id']
+            hotspot_users.remove(id=uid)
+            print(f"User {mac} deleted from user accounts")
+        except exceptions.RouterOsApiConnectionError as e:
+            print(f"Cannot reach RouterOS host: {e}")
+        except exceptions.RouterOsApiConnectionError as e:
+            print(f"Login failed: {e}")
 
             
 

@@ -23,17 +23,15 @@ PORT     = 8728                  # 8728 if you left SSL off
 mikrotik_api = MikrotikAPI(ROS_HOST, USERNAME, PASSWORD, PORT)
 
 # ──────────────────────────── COIN - DUINO ────────────────────────────
-dev_port = "COM6" # Change to actual device port
+dev_port = os.getenv("ARDUINO_PORT")
 arduino = ArduinoSerial(dev_port)
 
 # ──────────────────────────── FIREBASE ────────────────────────────
 db = DatabaseAPI(
-    './src/koinet-8bbee-firebase-adminsdk-fbsvc-3745e3e8c0.json',
+    'src/koinet-8bbee-firebase-adminsdk-fbsvc-3745e3e8c0.json',
     'https://koinet-8bbee-default-rtdb.asia-southeast1.firebasedatabase.app/'
     )
 
-lock_db = False # Lock database update if the database is currently updated.
-#TEST
 # ──────────────────────────── data structures ────────────────────────────
 class LoginUser:
         def __init__ (self, websocket: WebSocket, mac_address: str, ip_address: str):
@@ -97,6 +95,24 @@ async def update_coin_count(websocket, count):
             }
         }
     )
+
+
+import re
+def parse_mikrotik_time(time_str: str) -> int:
+    """Parses MikroTik-style duration strings like '2w3d4h5m6s' into total seconds."""
+    time_units = {
+        'w': 7 * 24 * 60 * 60,
+        'd': 24 * 60 * 60,
+        'h': 60 * 60,
+        'm': 60,
+        's': 1,
+    }
+    
+    matches = re.findall(r'(\d+)([wdhms])', time_str)
+    total_seconds = 0
+    for value, unit in matches:
+        total_seconds += int(value) * time_units[unit]
+    return total_seconds
 
 # ──────────────────────────── background worker ────────────────────────────
 timeout_duration = 11  # Add 1 lag second
@@ -218,11 +234,11 @@ async def login_queue_worker():
                     await asyncio.sleep(0.1)
                     await item.websocket.send_json({"status": "approved", "time_minutes": time_minutes})
 
-                    # Finish queue. Broadcast positions to other
-                    await broadcast_positions()
+                    db.updateCoinCount(item.mac_address, arduino.coinCount)
 
                 item.done.set() # Signal the request_login task that this item is done
-                arduino.resetCoinCount()
+                arduino.resetCoinCount() # Reset coin counter on arduino
+                await broadcast_positions() # Finish queue. Broadcast positions to other
 
             except asyncio.CancelledError:
                 # This worker task itself might be cancelled if the server shuts down
@@ -252,9 +268,6 @@ async def plts_status_worker():
 
 async def connected_users_worker():
     while True:
-        if lock_db:
-            continue
-
         allUsers = mikrotik_api.getHotspotUsers()
 
         activeUsers = mikrotik_api.getHotspotActive()
@@ -270,7 +283,7 @@ app = FastAPI()
 async def start_worker():
     asyncio.create_task(login_queue_worker())
     await arduino.startSerial()
-    await asyncio.sleep(1)
+    await asyncio.sleep(3) # Give time to start serial comm
     asyncio.create_task(plts_status_worker())
     asyncio.create_task(connected_users_worker())
     print("FastAPI Server startup session completed.")
@@ -301,13 +314,19 @@ async def request_login(websocket: WebSocket):
         users = json.loads(mikrotik_api.getHotspotUsers())
         for user in users:
             if user.get('mac-address') == mac_address and user.get('address') == ip_address:
-                await websocket.send_json(
-                    {"status": "bypass", "data": {
-                        "login": "approved"
-                    }}
-                )
-                print("User already have quota. Skip login session")
-                return
+                uptime_parsed = user.get('uptime')
+                limit_parsed = user.get('limit-uptime')
+
+                if (uptime_parsed >= limit_parsed):
+                    mikrotik_api.deleteHotspotUser(mac_address)
+                else:
+                    await websocket.send_json(
+                        {"status": "bypass", "data": {
+                            "login": "approved"
+                        }}
+                    )
+                    print("User already have quota. Skip login session")
+                    return
         
         print("Host detected. Adding client to queue.")
 

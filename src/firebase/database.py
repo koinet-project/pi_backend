@@ -1,7 +1,7 @@
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import json
 import re
 
@@ -14,6 +14,8 @@ class DatabaseAPI:
         self._hourlySample = []
 
         self._connectToFirebase()
+
+        self.databaseCleanup()
     
     def _connectToFirebase(self):
         firebase_admin.initialize_app(self._cred, {
@@ -89,6 +91,44 @@ class DatabaseAPI:
             total_seconds += int(value) * time_units[unit]
 
         return total_seconds
+    
+    def updateCoinCount(self, user: str, coin: int):
+        today = date.today()
+
+        ref = db.reference(f'/monitoring/coin_input/{today.isoformat()}/{user}')
+        current_coin = ref.get() or 0
+
+        total_coin = current_coin + coin
+        ref.set(total_coin)
+
+        print(f"User of mac {user} coin count is updated. Total coin input for today is: {total_coin}")
+
+    def databaseCleanup(self):
+        """
+        Clean up unused database data
+        """
+
+        # Remove coin database
+        today_date = date.today()
+        yesterday_date = today_date - timedelta(days=1)
+
+        ref = db.reference(f'/monitoring/coin_input')
+        all_coin_data = ref.get()
+
+        if all_coin_data:
+            for date_str in all_coin_data:
+                try:
+                    current_date = date.fromisoformat(date_str)
+
+                    if current_date < yesterday_date:
+                        print(f"Deleting coin data at {current_date.isoformat()}")
+
+                        db.reference(f"/monitoring/coin_input/{current_date}").delete()
+                except ValueError:
+                    print(f"Failed to delete coin data at {date_str}: Invalid date value")
+                except Exception as e:
+                    print(f"Failed to delete coin data at {date_str}: {e}")
+
 
     def updateConnectedUsers(self, all_users: str, active_users: str):
         users = json.loads(all_users)
